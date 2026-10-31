@@ -142,13 +142,15 @@ pipeline {
                 dir('kubernetes-files') {
 
                     withCredentials([
-    string(
-        credentialsId: 'my-git-pattoken',
-        variable: 'git_token'
-    )
-]) {
+                        string(
+                            credentialsId: 'my-git-pattoken',
+                            variable: 'git_token'
+                        )
+                    ]) {
 
                         sh '''
+                            set +x
+
                             git config user.email "${GIT_EMAIL}"
                             git config user.name "${GIT_USER_NAME}"
 
@@ -170,7 +172,7 @@ pipeline {
                                 git commit -m "Update ${AWS_ECR_REPO_NAME} image to version ${BUILD_NUMBER}"
 
                                 git push \
-                                https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git \
+                                "https://${GIT_USER_NAME}:${git_token}@github.com/${GIT_REPO_NAME}.git" \
                                 HEAD:main
 
                             else
@@ -211,7 +213,6 @@ pipeline {
                 body: """
                     <html>
                     <body>
-
                         <h2>Jenkins Pipeline Notification</h2>
 
                         <p><b>Project:</b> ${env.JOB_NAME}</p>
@@ -223,7 +224,6 @@ pipeline {
                         <p><b>Build URL:</b>
                         <a href="${env.BUILD_URL}">${env.BUILD_URL}</a>
                         </p>
-
                     </body>
                     </html>
                 """,
