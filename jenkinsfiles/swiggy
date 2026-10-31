@@ -142,44 +142,37 @@ pipeline {
                 dir('kubernetes-files') {
 
                     withCredentials([
-                        string(
-                            credentialsId: 'my_git_pattoken',
-                            variable: 'git_token'
-                        )
-                    ]) {
+    string(
+        credentialsId: 'my_git_pattoken',
+        variable: 'git_token'
+    )
+]) {
+    sh '''
+        set +x
 
-                        sh '''
-                            set +x
+        git config user.email "${GIT_EMAIL}"
+        git config user.name "${GIT_USER_NAME}"
 
-                            git config user.email "${GIT_EMAIL}"
-                            git config user.name "${GIT_USER_NAME}"
+        sed -i \
+        "s#image:.*#image: ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}#g" \
+        "${YAML_FILE}"
 
-                            echo "Updating image to build: ${BUILD_NUMBER}"
+        git add "${YAML_FILE}"
 
-                            if [ ! -f "${YAML_FILE}" ]; then
-                                echo "Error: ${YAML_FILE} not found!"
-                                exit 1
-                            fi
+        if ! git diff --cached --quiet; then
 
-                            sed -i \
-                            "s#image:.*#image: ${REPOSITORY_URI}/${AWS_ECR_REPO_NAME}:${BUILD_NUMBER}#g" \
-                            "${YAML_FILE}"
+            git commit -m "Update ${AWS_ECR_REPO_NAME} image to version ${BUILD_NUMBER}"
 
-                            git add "${YAML_FILE}"
+            AUTH=$(printf '%s' "${GIT_USER_NAME}:${git_token}" | base64 -w0)
 
-                            if ! git diff --cached --quiet; then
+            git -c http.extraheader="AUTHORIZATION: basic ${AUTH}" \
+            push https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
 
-                                git commit -m "Update ${AWS_ECR_REPO_NAME} image to version ${BUILD_NUMBER}"
-
-                                git push \
-                                "https://${GIT_USER_NAME}:${git_token}@github.com/${GIT_REPO_NAME}.git" \
-                                HEAD:main
-
-                            else
-                                echo "No deployment changes to commit"
-                            fi
-                        '''
-                    }
+        else
+            echo "No deployment changes to commit"
+        fi
+    '''
+}
                 }
             }
         }
